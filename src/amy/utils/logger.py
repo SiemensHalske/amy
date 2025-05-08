@@ -1,5 +1,7 @@
 import logging
+from dataclasses import dataclass
 from typing import Any
+import threading
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -14,6 +16,10 @@ install(extra_lines=5)
 
 class Logger:
     """Handles logging functionality using RichHandler and Console."""
+    _std_log_fmt = "\nLog-Time:\t%(asctime)s\nMessage:\t%(message)s\nFile:\t\t%(pathname)s\nLineO:\t\t%(lineno)d)"
+    _err_log_fmt = "%(asctime)s - %(levelname)s: %(message)s (%(pathname)s:%(lineno)d)"
+    _timer = None
+    _timer_lock = threading.Lock()
 
     _instance: "Logger" = None
     logger: logging.Logger = None
@@ -32,10 +38,9 @@ class Logger:
         self.logger = logging.getLogger("rich_logger")
         self.logger.setLevel(level)
 
-        # Define the log format to include line numbers
-        log_format = "%(levelname)s: %(message)s (%(pathname)s:%(lineno)d)"
+        # Define the log format to include file name and line number
         self.handler = RichHandler(rich_tracebacks=True, console=Console())
-        self.handler.setFormatter(logging.Formatter(log_format))
+        self.handler.setFormatter(logging.Formatter(self._std_log_fmt))
 
         self.logger.addHandler(self.handler)
 
@@ -62,9 +67,7 @@ class Logger:
 
             # Log the success message
             self.info(
-                f"File '{file.input_path}' has been successfully "
-                f"{mode} to '{file.output_path}'",
-                style="bold green",
+                f"File '{file.input_path}' has been successfully {mode} to '{file.output_path}'"
             )
         except Exception as err:  # pylint: disable=broad-except
             self.error(f"Logging Error from summary: {err}")
@@ -79,45 +82,69 @@ class Logger:
         except Exception as err:  # pylint: disable=broad-except
             self.error(f"Logging Error: {err}")
 
-    def debug(self, message: Any = "", style: str = "bold yellow") -> None:
-        """Logs a debug message to the console with optional styling."""
+    def debug(self, message: Any = "", stacklevel: int = 2) -> None:
+        """Logs a debug message."""
         try:
-            if style:
-                self.console.print(f"[{style}]DEBUG: {message}[/{style}]")
-            else:
-                self.logger.debug(message)
+            self.logger.debug(message, stacklevel=stacklevel)
         except Exception as err:  # pylint: disable=broad-except
             self.error(f"Logging Error: {err}")
 
-    def info(self, message: Any = "", style: str = "bold blue") -> None:
-        """Logs an info message to the console with optional styling."""
+    def info(self, message: Any = "", stacklevel: int = 2) -> None:
+        """Logs an info message."""
         try:
-            if style:
-                self.console.print(f"[{style}]INFO: {message}[/{style}]")
-            else:
-                self.logger.info(message)
+            self.logger.info(message, stacklevel=stacklevel)
         except Exception as err:  # pylint: disable=broad-except
             self.error(f"Logging Error: {err}")
 
-    def warning(self, message: Any = "", style: str = "bold yellow", stacklevel: int = 2) -> None:
-        """Logs a warning message to the console with optional styling."""
+    def warning(self, message: Any = "", stacklevel: int = 2) -> None:
+        """Logs a warning message."""
         try:
-            if style:
-                self.console.print(f"[{style}]WARNING: {message}[/{style}]")
-            else:
-                self.logger.warning(message, stacklevel=stacklevel)
+            self.logger.warning(message, stacklevel=stacklevel)
         except Exception as err:  # pylint: disable=broad-except
             self.error(f"Logging Error: {err}")
 
-    def error(self, message: Any = "", style: str = "bold red", stacklevel: int = 2) -> None:
-        """Logs an error message to the console with optional styling."""
+    def timed_format(self) -> str:
+        """Sets the logger format to the _err_log_fmt for a specific time
+        using threading to avoid hanging the main thread.
+
+        Default: _std_log_fmt
+        """
+
+        fmt_time = 0.2
+
         try:
-            if style:
-                self.console.print(f"[{style}]ERROR: {message}[/{style}]")
-            else:
-                self.logger.error(message, stacklevel=stacklevel)
+            self.logger.handlers[0].setFormatter(
+                logging.Formatter(self._err_log_fmt))
+            self._timer = threading.Timer(fmt_time, self._reset_format)
+            self._timer.start()
+        except Exception as err:  # pylint: disable=broad-except
+            self.error(f"Logging Error in timed_format: {err}")
+
+    def _reset_format(self) -> None:
+        """Resets the logger format to the _std_log_fmt."""
+        try:
+            with self._timer_lock:
+                if self._timer:
+                    self._timer.cancel()
+                    self.logger.handlers[0].setFormatter(
+                        logging.Formatter(self._std_log_fmt))
+        except Exception as err:  # pylint: disable=broad-except
+            self.error(f"Logging Error in _reset_format: {err}")
+
+    def error(self, message: Any = "", stacklevel: int = 2) -> None:
+        """Logs an error message."""
+        self.timed_format()
+        try:
+            self.logger.error(message, stacklevel=stacklevel)
         except Exception as err:  # pylint: disable=broad-except
             self.logger.error(f"Logging Error: {err}")
+
+    def styled_info(self, message: Any = "", style: str = "bold blue") -> None:
+        """Prints an info message with styling."""
+        try:
+            self.console.print(f"[{style}]INFO: {message}[/{style}]")
+        except Exception as err:  # pylint: disable=broad-except
+            self.error(f"Logging Error: {err}")
 
     def __str__(self) -> str:
         return "Logger"

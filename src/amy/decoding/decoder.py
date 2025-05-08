@@ -24,8 +24,8 @@ class Base64Decoder:
 @dataclass
 class Base64FileDecoder:
     """Main class to orchestrate the Base64 file decoding process."""
-    _instance: 'Base64FileDecoder'
-    environment: ConfigNamespace
+    _instance: 'Base64FileDecoder' = None
+    environment: ConfigNamespace = None
 
     file: FileInfo = None
     logger: Logger = Logger()
@@ -46,6 +46,9 @@ class Base64FileDecoder:
         """Sets the environment variables."""
         self.environment = environment
         self.startup()
+
+    def __init__(self) -> None:
+        pass
 
     def startup(self) -> None:
         """Initializes the decoder with file paths. NOT used in __new__."""

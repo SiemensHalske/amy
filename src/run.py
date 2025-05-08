@@ -88,6 +88,7 @@ def main():
         decoder = Base64FileDecoder()
         decoder.set_environment(env)
         decoder.decode()
+    display.error(message="Test")
 
 
 if __name__ == "__main__":
