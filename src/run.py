@@ -3,8 +3,7 @@ import argparse
 from rich.prompt import Prompt
 
 from amy.utils import Logger, ConfigNamespace
-from amy.encoding import Base64FileEncoder
-from amy.decoding import Base64FileDecoder
+from amy.codec import Base64FileEncoder, Base64FileDecoder
 
 
 def parse_arguments() -> ConfigNamespace:
