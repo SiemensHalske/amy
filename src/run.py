@@ -44,6 +44,7 @@ def parse_arguments() -> ConfigNamespace:
     args = parser.parse_args()
 
     env = ConfigNamespace()
+
     env.mode = "encode" if args.encode else "decode"
     env.file = args.file
     env.output = args.output
@@ -51,37 +52,42 @@ def parse_arguments() -> ConfigNamespace:
     return env
 
 
+def preprocess(env: ConfigNamespace) -> None:
+    """
+    Preprocess the environment variables.
+    """
+
+    if not env.file:
+        print(
+            "File path is required. "
+            "Please provide a valid file path."
+        )
+        env.file = Prompt.ask(
+            "[bold yellow] QUESTION\n[/bold yellow] "
+            "Please enter the file path"
+        )
+
+
 def main():
     """
     Main function to run the Base64 encoding/decoding process.
     """
     display = Logger()
-    display.console.print(
+    display.info(
         "Starting Base64 File Encoder/Decoder CLI Tool",
-        style="bold blue"
     )
     env = parse_arguments()
 
-    file_path = env.file
-
-    if not file_path:
-        display.console.print(
-            "File path is required. Please provide a valid file path.",
-            style="bold red"
-        )
-        file_path = Prompt.ask(
-            "[bold yellow] QUESTION\n[/bold yellow] Please enter the file path",
-            console=display.console
-        )
+    preprocess(env)
 
     if env.mode == "encode":
-        encoder = Base64FileEncoder.from_file(file_path)
+        encoder = Base64FileEncoder()
+        encoder.set_environment(env)
         encoder.encode()
-        return
     if env.mode == "decode":
-        decoder = Base64FileDecoder.from_file(file_path)
+        decoder = Base64FileDecoder()
+        decoder.set_environment(env)
         decoder.decode()
-        return
 
 
 if __name__ == "__main__":
